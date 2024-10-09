@@ -2,8 +2,6 @@
 
 namespace App\Service;
 
-use App\Entity\Developer;
-use App\Entity\Task;
 use App\Repository\DeveloperRepository;
 use App\Repository\TaskRepository;
 use Doctrine\ORM\EntityManagerInterface;
