@@ -5,7 +5,7 @@ Projeyi klonlayın
   git clone https://github.com/haliltuksal/to_do_c.git
 ```
 
-Server dizinine gidin
+to_do_c dizinine gidin
 
 ```bash
   cd to_do_c
