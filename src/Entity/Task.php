@@ -47,7 +47,7 @@ class Task
     private $difficulty;
 
     /**
-     * @ORM\ManyToOne(targetEntity=Developer::class, inversedBy="week")
+     * @ORM\ManyToOne(targetEntity=Developer::class, inversedBy="task")
      * @Groups("task:read")
      */
     private $assignedDeveloper;
