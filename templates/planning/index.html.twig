@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1 class="text-center display-4">İş Planlama Sonuçları</h1>
+
+                <p class="text-center text-muted">Toplam iş {{ totalWeeks }} haftada tamamlanacaktır.</p>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>Görev Adı</th>
+                        <th>Geliştirici</th>
+                        <th>Hafta</th>
+                        <th>Süre</th>
+                        <th>Zorluk</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.name }}</td>
+                            <td>{{ task.assignedDeveloper.name|default('-')}}</td>
+                            <td>{{ task.week }}</td>
+                            <td>{{ task.duration }}</td>
+                            <td>{{ task.difficulty }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
