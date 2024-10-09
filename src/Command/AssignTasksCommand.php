@@ -7,6 +7,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 class AssignTasksCommand extends Command
 {
@@ -24,22 +25,29 @@ class AssignTasksCommand extends Command
 
     protected function configure()
     {
-        $this->setDescription('Görevleri yükler ve geliştiricilere atar.');
+        $this
+            ->setDescription('Görevleri yükler ve geliştiricilere atar.')
+            ->setHelp('Bu komut, tüm geliştiricilere mevcut görevleri verimli şekilde atamak için kullanılır.');
     }
 
     /**
      * @throws \Exception
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $io = new SymfonyStyle($input, $output);
+
         try {
             $totalWeeks = $this->schedulerService->scheduleTasks();
 
-            $output->writeln('Görevler başarıyla geliştiricilere atandı.');
-            $output->writeln('Bütün işler ' . $totalWeeks . ' haftada tamamlanacaktır.');
-        }catch (\Exception $exception){
-            $output->writeln("<error>".$exception->getMessage()."</error>");
+            $io->success('Görevler başarıyla geliştiricilere atandı.');
+            $io->text('Bütün işler ' . $totalWeeks . ' haftada tamamlanacaktır.');
+
+            return 0;
+        } catch (\Exception $exception) {
+            $io->error($exception->getMessage());
+
+            return 1;
         }
     }
 }
-

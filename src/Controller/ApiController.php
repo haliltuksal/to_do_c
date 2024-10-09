@@ -27,7 +27,7 @@ class ApiController extends AbstractController
     }
 
     /**
-     * @Route("/developers")
+     * @Route("/developers", methods={"GET"})
      */
     public function getDevelopers(SerializerInterface $serializer): JsonResponse
     {
@@ -39,7 +39,7 @@ class ApiController extends AbstractController
     }
 
     /**
-     * @Route("/tasks")
+     * @Route("/tasks", methods={"GET"})
      */
     public function getTasks(SerializerInterface $serializer): JsonResponse
     {

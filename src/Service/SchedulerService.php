@@ -28,8 +28,7 @@ class SchedulerService
         DeveloperRepository $developerRepository,
         TaskRepository $taskRepository,
         HttpClientInterface $client
-    )
-    {
+    ) {
         $this->em = $em;
         $this->developerRepository = $developerRepository;
         $this->taskRepository = $taskRepository;
@@ -44,90 +43,70 @@ class SchedulerService
      * @throws ServerExceptionInterface
      * @throws Exception
      */
-    public function scheduleTasks()
+    public function scheduleTasks(): int
+    {
+        $developers = $this->fetchDevelopers();
+        $tasks = $this->fetchTasks();
+
+        return $this->runSchedulingAlgorithm($developers, $tasks);
+    }
+
+    /**
+     * @throws TransportExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws ClientExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws Exception
+     */
+    private function fetchDevelopers(): array
     {
         $developersResponse = $this->client->request('GET', 'http://localhost:8001/api/developers');
         $developers = $developersResponse->toArray();
 
         if (empty($developers)) {
-            throw new \Exception('Geliştirici listesi boş.');
+            throw new Exception('Geliştirici listesi boş.');
         }
 
-        $tasksResponse = $this->client->request('GET', 'http://localhost:8001/api/tasks');
-        $tasks = $tasksResponse->toArray();
-        if (empty($tasks)) {
-            throw new \Exception('Görev listesi boş.');
-        }
-
-        return $this->runSchedulingAlgorithm($developers, $tasks);
+        return $developers;
     }
 
+    /**
+     * @throws TransportExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws ClientExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws Exception
+     */
+    private function fetchTasks(): array
+    {
+        $tasksResponse = $this->client->request('GET', 'http://localhost:8001/api/tasks');
+        $tasks = $tasksResponse->toArray();
+
+        if (empty($tasks)) {
+            throw new Exception('Görev listesi boş.');
+        }
+
+        return $tasks;
+    }
 
     /**
      * @throws Exception
      */
-    public function runSchedulingAlgorithm($developers, $tasks)
+    public function runSchedulingAlgorithm(array $developers, array $tasks): int
     {
-        if (empty($developers)) {
-            throw new Exception('Geliştirici bulunamadı. Lütfen geliştiricileri veritabanına yükleyin.');
-        }
-
-        $developerCapacities = [];
-        foreach ($developers as $developerData) {
-            $this->validateDeveloperData($developerData);
-
-            $developerEntity = $this->developerRepository->find($developerData['id']);
-            if (!$developerEntity) {
-                throw new Exception('Developer with id ' . $developerData['id'] . ' not found.');
-            }
-
-            $developerCapacities[$developerData['id']] = [
-                'developerData' => $developerData, // API'den gelen dizi
-                'developerEntity' => $developerEntity, // Veritabanından alınan Developer nesnesi
-                'available_hours' => $developerData['weeklyWorkHours'],
-                'current_week' => 1,
-            ];
-        }
-
+        $developerCapacities = $this->initializeDeveloperCapacities($developers);
         usort($tasks, function ($a, $b) {
             return $b['difficulty'] - $a['difficulty'];
         });
 
         foreach ($tasks as $taskData) {
             $this->validateTaskData($taskData);
-
-            $suitableDeveloperKey = null;
-            $minDifference = PHP_INT_MAX;
-
-            foreach ($developerCapacities as $key => $capacity) {
-                $developerEfficiency = $capacity['developerData']['efficiency'];
-                $difference = abs($taskData['difficulty'] - $developerEfficiency);
-
-                if ($difference < $minDifference) {
-                    $minDifference = $difference;
-                    $suitableDeveloperKey = $key;
-                }
-            }
+            $suitableDeveloperKey = $this->findSuitableDeveloper($developerCapacities, $taskData);
 
             if ($suitableDeveloperKey !== null) {
-                $suitableDeveloper = &$developerCapacities[$suitableDeveloperKey];
-
-                $adjustedDuration = $taskData['duration'] / $suitableDeveloper['developerData']['efficiency'];
-
-                if ($suitableDeveloper['available_hours'] < $adjustedDuration) {
-                    $suitableDeveloper['current_week'] += 1;
-                    $suitableDeveloper['available_hours'] = $suitableDeveloper['developerData']['weeklyWorkHours'];
-                }
-
-                $taskAsObject = $this->taskRepository->find($taskData['id']);
-                if ($taskAsObject) {
-                    $taskAsObject->setAssignedDeveloper($suitableDeveloper['developerEntity']);
-                    $taskAsObject->setWeek($suitableDeveloper['current_week']);
-
-                    $this->em->persist($taskAsObject);
-                }
-
-                $suitableDeveloper['available_hours'] -= $adjustedDuration;
+                $this->assignTaskToDeveloper($developerCapacities, $suitableDeveloperKey, $taskData);
             } else {
                 throw new Exception('Görev için uygun geliştirici bulunamadı: ' . $taskData['name']);
             }
@@ -138,7 +117,67 @@ class SchedulerService
         return max(array_column($developerCapacities, 'current_week'));
     }
 
-    private function validateDeveloperData(array $developerData)
+    private function initializeDeveloperCapacities(array $developers): array
+    {
+        $developerCapacities = [];
+        foreach ($developers as $developerData) {
+            $this->validateDeveloperData($developerData);
+
+            $developerEntity = $this->developerRepository->find($developerData['id']);
+            if (!$developerEntity) {
+                throw new Exception($developerData['id'] . " ID'ye ait Geliştirici bulunamadı");
+            }
+
+            $developerCapacities[$developerData['id']] = [
+                'developerData' => $developerData,
+                'developerEntity' => $developerEntity,
+                'available_hours' => $developerData['weeklyWorkHours'],
+                'current_week' => 1,
+            ];
+        }
+        return $developerCapacities;
+    }
+
+    private function findSuitableDeveloper(array $developerCapacities, array $taskData): ?int
+    {
+        $suitableDeveloperKey = null;
+        $minDifference = PHP_INT_MAX;
+
+        foreach ($developerCapacities as $key => $capacity) {
+            $developerEfficiency = $capacity['developerData']['efficiency'];
+            $difference = abs($taskData['difficulty'] - $developerEfficiency);
+
+            if ($difference < $minDifference) {
+                $minDifference = $difference;
+                $suitableDeveloperKey = $key;
+            }
+        }
+
+        return $suitableDeveloperKey;
+    }
+
+    private function assignTaskToDeveloper(array &$developerCapacities, int $suitableDeveloperKey, array $taskData): void
+    {
+        $suitableDeveloper = &$developerCapacities[$suitableDeveloperKey];
+        $adjustedDuration = $taskData['duration'] / $suitableDeveloper['developerData']['efficiency'];
+
+        if ($suitableDeveloper['available_hours'] < $adjustedDuration) {
+            $suitableDeveloper['current_week'] += 1;
+            $suitableDeveloper['available_hours'] = $suitableDeveloper['developerData']['weeklyWorkHours'];
+        }
+
+        $taskAsObject = $this->taskRepository->find($taskData['id']);
+        if ($taskAsObject) {
+            $taskAsObject->setAssignedDeveloper($suitableDeveloper['developerEntity']);
+            $taskAsObject->setWeek($suitableDeveloper['current_week']);
+
+            $this->em->persist($taskAsObject);
+        }
+
+        $suitableDeveloper['available_hours'] -= $adjustedDuration;
+    }
+
+    private function validateDeveloperData(array $developerData): void
     {
         if (!isset($developerData['id'], $developerData['name'], $developerData['efficiency'], $developerData['weeklyWorkHours'])) {
             throw new Exception('Geliştirici verisi eksik alanlara sahip.');
@@ -161,7 +200,7 @@ class SchedulerService
         }
     }
 
-    private function validateTaskData(array $taskData)
+    private function validateTaskData(array $taskData): void
     {
         if (!isset($taskData['id'], $taskData['name'], $taskData['duration'], $taskData['difficulty'])) {
             throw new Exception('Görev verisi eksik alanlara sahip.');
@@ -183,8 +222,4 @@ class SchedulerService
             throw new Exception('Görev zorluk derecesi geçersiz.');
         }
     }
-
-
-
 }
-
