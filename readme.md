@@ -1,26 +1,39 @@
-# İş Planlama Uygulaması
-
-Bu proje, farklı sağlayıcılardan gelen görevleri geliştiricilere atayan ve iş planlaması yapan bir Symfony uygulamasıdır. Uygulama, görevlerin zorluk derecelerine ve geliştiricilerin verimliliklerine göre haftalık iş dağılımı yapar.
-
-## 📖 İçindekiler
-
-- [Özellikler](#özellikler)
-- [Gereksinimler](#gereksinimler)
-- [Kurulum](#kurulum)
-- [Yapılandırma](#yapılandırma)
-- [Kullanım](#kullanım)
-- [API Endpoint'leri](#api-endpointleri)
-- [Testler](#testler)
-- [Katkıda Bulunma](#katkıda-bulunma)
-- [Lisans](#lisans)
-
-
-## 🚀 Kurulum
-
-### 1. Depoyu Klonlayın
+## Kurulum
+Projeyi klonlayın
 
 ```bash
-git clone https://github.com/kullanici_adi/proje_adi.git
+  git clone https://github.com/haliltuksal/to_do_c.git
 ```
-git clone https://github.com/kullanici_adi/proje_adi.git
 
+Server dizinine gidin
+
+```bash
+  cd to_do_c
+```
+
+Bağımlılıkları yükleyin
+
+```bash
+  composer install
+```
+
+**Verileri Veritabanına Aktarın**
+
+```bash
+  php bin/console doctrine:fixtures:load
+```
+## Kullanım
+
+API istekleri için http://localhost:8001 adresini kullanın.
+
+```bash
+php -S localhost:8001 -t public
+```
+
+## Komutlar
+
+```bash
+php bin/console app:assign-tasks
+#- Mock dosyalarından görevleri yükler.
+#- Planlama algoritmasını çalıştırır ve görevleri geliştiricilere atar.
+```
